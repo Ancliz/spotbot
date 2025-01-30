@@ -1,0 +1,13 @@
+{
+  "type": "module",
+  "workspaces": ["api", "client", "server"],
+  "dependencies": {
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0"
+  },  
+  "scripts": {
+    "entrypoint": "LOG_LEVEL=debug node api/entrypoint.js",
+    "now-playing": "LOG_LEVEL=debug node api/now-playing.js",
+    "song_request": "LOG_LEVEL=debug node apisong_request.js"
+  }
+}

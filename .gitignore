@@ -1,0 +1,3 @@
+client/
+entrypoint.js
+ecosystem.config.*
