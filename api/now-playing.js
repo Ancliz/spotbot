@@ -1,19 +1,16 @@
-import RequestBuilder, { HttpStatus } from "../global/requests-util.js"
-import refreshSpotifyToken from "./spotify-token.js"
-
+import RequestBuilder, { httpException, HttpStatus, UnauthorizedException } from "../global/requests-util.js"
 import { logger } from "../global/global.js";
 
-export default async function nowPlaying(client_id, client_secret, token, refresh_token, attempt = 0) {
-	if(attempt > 1) {
-		logger.error("Maximum attempts exceeded.");
-		return;
-	}
-
+/**
+ * @param {string} token 
+ * @returns {string} the formatted title and artists of the song currently playing
+ */
+export default async function nowPlaying(token) {
 	const request = new RequestBuilder()
 		.url("https://api.spotify.com/v1/me/player/currently-playing")
 		.headers( { "Authorization": `Bearer ${token}` } )
 		.build();
-
+		
 	const response = await request();
 	const data = await response.json();
 	let result = "";
@@ -35,16 +32,11 @@ export default async function nowPlaying(client_id, client_secret, token, refres
 		});
 
 	} else if(response.status == HttpStatus.UNAUTHORIZED) {
-		result = "401: Error retrieving song.";
-		logger.error(result);
-		const data = await refreshSpotifyToken(client_id, client_secret, refresh_token);
-		token = data.access_token;
-		result = await nowPlaying(client_id, client_secret, token, refresh_token, attempt++);
+		throw new UnauthorizedException();
 	} else {
-		result = "Error retrieving song: " + response.status;
-		logger.error(result);
+		throw httpException("Error retrieving song: " + response.status);
 	}
 
-	logger.debug("[attempt: " + attempt + "] result: " + result);
+	logger.debug("result: " + result);
 	return result;
 }

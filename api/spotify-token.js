@@ -36,6 +36,7 @@ export default async function refreshSpotifyToken(clientId, clientSecret, refres
         if(data.refresh_token) {
             CallbackUtil.saveRefreshToken(data.refresh_token);
         }
+        
         return data;
     } else {
         logger.debug(refreshToken);

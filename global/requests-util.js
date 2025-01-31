@@ -14,13 +14,34 @@ export const HttpStatus = Object.freeze({
     NOT_IMPLEMENTED: 501,
 });
 
+
+export class HeaderBuilder {
+
+	constructor(base = {}) {
+		this.headers = base;
+	}
+
+	set(header, value) {
+		this.headers[header] = value;
+		return this;
+	}
+
+	build() {
+		return this.headers;
+	}
+}
+
 export default class RequestBuilder {
     constructor() {
-        this.burl = '';
-        this.bmethod = 'GET';
+        this.burl = "";
+        this.bmethod = "GET";
         this.bheaders = {};
         this.bbody = {};
     }
+
+	getHeaderBuilder() {
+		return new HeaderBuilder(this.bheaders);
+	}
 
     url(url) {
         this.burl = url;
@@ -56,7 +77,93 @@ export default class RequestBuilder {
                     options.body = JSON.stringify(this.bbody);
                 }
             }
-            return fetch(this.burl, options);     
+            return fetch(this.burl, options);
         };
     }
+}
+
+export class BadRequestException extends Error {
+	constructor(message) {
+		super(message);
+		this.name = this.constructor.name;
+	}
+}
+
+export class UnauthorizedException extends Error {
+	constructor(message) {
+		super(message);
+		this.name = this.constructor.name;
+	}
+}
+
+export class ForbiddenException extends Error {
+	constructor(message) {
+		super(message);
+		this.name = this.constructor.name;
+	}
+}
+
+export class NotFoundException extends Error {
+	constructor(message) {
+		super(message);
+		this.name = this.constructor.name;
+	}
+}
+
+export class MethodNotAllowedException extends Error {
+	constructor(message) {
+		super(message);
+		this.name = this.constructor.name;
+	}
+}
+
+export class NotAcceptableException extends Error {
+	constructor(message) {
+		super(message);
+		this.name = this.constructor.name;
+	}
+}
+
+export class ConflictException extends Error {
+	constructor(message) {
+		super(message);
+		this.name = this.constructor.name;
+	}
+}
+
+export class IAmATeapotException extends Error {
+	constructor(message) {
+		super(message);
+		this.name = this.constructor.name;
+	}
+}
+
+export class InternalServerErrorException extends Error {
+	constructor(message) {
+		super(message);
+		this.name = this.constructor.name;
+	}
+}
+
+export class NotImplementedException extends Error {
+	constructor(message) {
+		super(message);
+		this.name = this.constructor.name;
+	}
+}
+
+export function httpException(statusCode, message = "") {
+	switch (statusCode) {
+		case HttpStatus.BAD_REQUEST:            return new BadRequestException(message || "Bad Request");
+		case HttpStatus.UNAUTHORIZED:           return new UnauthorizedException(message || "Unauthorized");
+		case HttpStatus.FORBIDDEN:              return new ForbiddenException(message || "Forbidden");
+	    case HttpStatus.NOT_FOUND:              return new NotFoundException(message || "Not Found");
+		case HttpStatus.METHOD_NOT_ALLOWED:     return new MethodNotAllowedException(message || "Method Not Allowed");
+		case HttpStatus.NOT_ACCEPTABLE:         return new NotAcceptableException(message || "Not Acceptable");
+		case HttpStatus.CONFLICT:               return new ConflictException(message || "Conflict");
+		case HttpStatus.I_AM_A_TEAPOT:          return new IAmATeapotException(message || "I'm a teapot");
+		case HttpStatus.INTERNAL_SERVER_ERROR:  return new InternalServerErrorException(message || "Internal Server Error");
+		case HttpStatus.NOT_IMPLEMENTED:        return new NotImplementedException(message || "Not Implemented");
+		default:                                return new Error("Unknown HTTP Status");
+	}
 }
