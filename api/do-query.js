@@ -1,5 +1,6 @@
-import { UnauthorizedException } from "../global/requests-util.js";
+import { BadRequestException, UnauthorizedException } from "../global/requests-util.js";
 import refreshSpotifyToken from "./spotify-token.js";
+import { logger } from "../global/global.js"
 
 /**
  * A general function to run functions that make authenticated API calls
@@ -16,8 +17,9 @@ export async function runAuthenticated(runnable, access_token, refresh_token, cl
     try {
         result = await runnable(access_token);
     } catch(error) {
-        if(error instanceof UnauthorizedException) {
-            access_token = await refreshSpotifyToken(client_id, client_secret, refresh_token);
+        if(error instanceof UnauthorizedException || error instanceof BadRequestException) {
+            logger.error(error.message);
+            access_token = (await refreshSpotifyToken(client_id, client_secret, refresh_token)).access_token;
             result = await runnable(access_token);
         }
     }

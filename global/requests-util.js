@@ -14,7 +14,6 @@ export const HttpStatus = Object.freeze({
     NOT_IMPLEMENTED: 501,
 });
 
-
 export class HeaderBuilder {
 
 	constructor(base = {}) {
@@ -82,88 +81,95 @@ export default class RequestBuilder {
     }
 }
 
-export class BadRequestException extends Error {
+export class HttpException extends Error {
 	constructor(message) {
 		super(message);
 		this.name = this.constructor.name;
 	}
 }
 
-export class UnauthorizedException extends Error {
-	constructor(message) {
-		super(message);
+export class BadRequestException extends HttpException {
+	constructor(message = "BAD REQUEST") {
+		super("400 " + message);
 		this.name = this.constructor.name;
 	}
 }
 
-export class ForbiddenException extends Error {
-	constructor(message) {
-		super(message);
+export class UnauthorizedException extends HttpException {
+	constructor(message = "UNAUTHORIZED") {
+		super("401 " + message);
 		this.name = this.constructor.name;
 	}
 }
 
-export class NotFoundException extends Error {
-	constructor(message) {
-		super(message);
+export class ForbiddenException extends HttpException {
+	constructor(message = "FORBIDDEN") {
+		super("403 " + message);
 		this.name = this.constructor.name;
 	}
 }
 
-export class MethodNotAllowedException extends Error {
-	constructor(message) {
-		super(message);
+export class NotFoundException extends HttpException {
+	constructor(message = "NOT FOUND") {
+		super("404 " + message);
 		this.name = this.constructor.name;
 	}
 }
 
-export class NotAcceptableException extends Error {
-	constructor(message) {
-		super(message);
+export class MethodNotAllowedException extends HttpException {
+	constructor(message = "METHOD NOT ALLOWED") {
+		super("405 " + message);
 		this.name = this.constructor.name;
 	}
 }
 
-export class ConflictException extends Error {
-	constructor(message) {
-		super(message);
+export class NotAcceptableException extends HttpException {
+	constructor(message = "NOT ACCEPTABLE") {
+		super("406 " + message);
 		this.name = this.constructor.name;
 	}
 }
 
-export class IAmATeapotException extends Error {
-	constructor(message) {
-		super(message);
+export class ConflictException extends HttpException {
+	constructor(message = "CONFLICT") {
+		super("409 " + message);
 		this.name = this.constructor.name;
 	}
 }
 
-export class InternalServerErrorException extends Error {
-	constructor(message) {
-		super(message);
+export class IAmATeapotException extends HttpException {
+	constructor(message = "You are a teapot. L.") {
+		super("418 " + message);
 		this.name = this.constructor.name;
 	}
 }
 
-export class NotImplementedException extends Error {
-	constructor(message) {
-		super(message);
+export class InternalServerErrorException extends HttpException {
+	constructor(message = "INTERNAL SERVER ERROR") {
+		super("500 " + message);
 		this.name = this.constructor.name;
 	}
 }
 
-export function httpException(statusCode, message = "") {
-	switch (statusCode) {
-		case HttpStatus.BAD_REQUEST:            return new BadRequestException(message || "Bad Request");
-		case HttpStatus.UNAUTHORIZED:           return new UnauthorizedException(message || "Unauthorized");
-		case HttpStatus.FORBIDDEN:              return new ForbiddenException(message || "Forbidden");
-	    case HttpStatus.NOT_FOUND:              return new NotFoundException(message || "Not Found");
-		case HttpStatus.METHOD_NOT_ALLOWED:     return new MethodNotAllowedException(message || "Method Not Allowed");
-		case HttpStatus.NOT_ACCEPTABLE:         return new NotAcceptableException(message || "Not Acceptable");
-		case HttpStatus.CONFLICT:               return new ConflictException(message || "Conflict");
-		case HttpStatus.I_AM_A_TEAPOT:          return new IAmATeapotException(message || "I'm a teapot");
-		case HttpStatus.INTERNAL_SERVER_ERROR:  return new InternalServerErrorException(message || "Internal Server Error");
-		case HttpStatus.NOT_IMPLEMENTED:        return new NotImplementedException(message || "Not Implemented");
-		default:                                return new Error("Error: " + statusCode);
+export class NotImplementedException extends HttpException {
+	constructor(message = "NOT IMPLEMENTED") {
+		super("501 " + message);
+		this.name = this.constructor.name;
+	}
+}
+
+export function httpException(status, message = "") {
+	switch(status) {
+		case HttpStatus.BAD_REQUEST:            return new BadRequestException(message);
+		case HttpStatus.UNAUTHORIZED:           return new UnauthorizedException(message);
+		case HttpStatus.FORBIDDEN:              return new ForbiddenException(message);
+	    case HttpStatus.NOT_FOUND:              return new NotFoundException(message);
+		case HttpStatus.METHOD_NOT_ALLOWED:     return new MethodNotAllowedException(message);
+		case HttpStatus.NOT_ACCEPTABLE:         return new NotAcceptableException(message);
+		case HttpStatus.CONFLICT:               return new ConflictException(message);
+		case HttpStatus.I_AM_A_TEAPOT:          return new IAmATeapotException(message);
+		case HttpStatus.INTERNAL_SERVER_ERROR:  return new InternalServerErrorException(message);
+		case HttpStatus.NOT_IMPLEMENTED:        return new NotImplementedException(message);
+		default:                                return new Error("Http Error: " + status);
 	}
 }
