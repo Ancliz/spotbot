@@ -164,6 +164,6 @@ export function httpException(statusCode, message = "") {
 		case HttpStatus.I_AM_A_TEAPOT:          return new IAmATeapotException(message || "I'm a teapot");
 		case HttpStatus.INTERNAL_SERVER_ERROR:  return new InternalServerErrorException(message || "Internal Server Error");
 		case HttpStatus.NOT_IMPLEMENTED:        return new NotImplementedException(message || "Not Implemented");
-		default:                                return new Error("Unknown HTTP Status");
+		default:                                return new Error("Error: " + statusCode);
 	}
 }

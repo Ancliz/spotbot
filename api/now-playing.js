@@ -34,7 +34,7 @@ export default async function nowPlaying(token) {
 	} else if(response.status == HttpStatus.UNAUTHORIZED) {
 		throw new UnauthorizedException();
 	} else {
-		throw httpException("Error retrieving song: " + response.status);
+		throw httpException(response.status, "Error retrieving song");
 	}
 
 	logger.debug("result: " + result);
