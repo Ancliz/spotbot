@@ -19,15 +19,15 @@ export default async function nowPlayingDoQuery(client_id, client_secret, token,
 		const artistsObjects = data.item.artists;
 
 		artistsObjects.forEach((artist, index) => {
-				if(index > 0) {
-					if(index < artistsObjects.length - 1) {
-						result += ", ";
-					} else {
-						result += " and "
-					}
+			if(index > 0) {
+				if(index < artistsObjects.length - 1) {
+					result += ", ";
+				} else {
+					result += " and "
 				}
-				result += artist.name;
-			});
+			}
+			result += artist.name;
+		});
 	} catch(error) {
 		logger.error("Error retrieving song: " + error.message);
 	}
