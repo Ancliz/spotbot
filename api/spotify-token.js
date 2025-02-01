@@ -30,7 +30,7 @@ export default async function refreshSpotifyToken(clientId, clientSecret, refres
     if(response.status === HttpStatus.OK) {
         const data = await response.json();
         logger.debug("data: " + JSON.stringify(data));
-        logger.debug("Refresh Request OK");
+        logger.info("Refresh Request OK");
         CallbackUtil.saveAccessToken(data.access_token);
         
         if(data.refresh_token) {
