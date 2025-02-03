@@ -1,4 +1,4 @@
-import { BadRequestException, UnauthorizedException } from "../global/requests-util.js";
+import { BadRequestException, NotFoundException, UnauthorizedException } from "../global/requests-util.js";
 import refreshSpotifyToken from "./spotify-token.js";
 import { logger } from "../global/global.js"
 
@@ -22,10 +22,16 @@ export async function runAuthenticated(runnable, access_token, refresh_token, cl
     try {
         result = await runnable(access_token, args);
     } catch(error) {
-        if(error instanceof UnauthorizedException || error instanceof BadRequestException) {
+        if(error instanceof UnauthorizedException) {
             logger.error(error.message);
             access_token = (await refreshSpotifyToken(client_id, client_secret, refresh_token)).access_token;
             result = await runnable(access_token, args);
+        } else if(error instanceof NotFoundException) {
+            logger.error(error.message);
+        } else if(error instanceof BadRequestException) {
+            logger.error(error.message);
+        } else {
+            logger.error(error);
         }
     }
 

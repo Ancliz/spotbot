@@ -12,10 +12,10 @@ export default async function nowPlaying(token) {
 		.build();
 		
 	const response = await request();
-	const data = await response.json();
 	let result = "";
 
 	if(response.status == HttpStatus.OK) {
+	 	const data = await response.json();
 		result = `Now playing: ${data.item.name} - `;
 
 		const artistsObjects = data.item.artists;
@@ -31,6 +31,8 @@ export default async function nowPlaying(token) {
 			result += artist.name;
 		});
 
+	} else if(response.status === HttpStatus.NO_CONTENT) {
+		result = "Player not currently active"
 	} else if(response.status == HttpStatus.UNAUTHORIZED) {
 		throw new UnauthorizedException("Failed to get currently playing song");
 	} else {
