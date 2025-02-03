@@ -6,8 +6,8 @@
     "pino-pretty": "^13.0.0"
   },  
   "scripts": {
-    "trace": "LOG_LEVEL=trace node api/entrypoint.js",
-    "debug": "LOG_LEVEL=debug node api/entrypoint.js",
-    "entry": "LOG_LEVEL=info  node api/entrypoint.js"
+    "trace": "LOG_LEVEL=trace node client/entrypoint.js",
+    "debug": "LOG_LEVEL=debug node client/entrypoint.js",
+    "entry": "LOG_LEVEL=info  node client/entrypoint.js"
   }
 }
