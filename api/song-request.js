@@ -1,9 +1,10 @@
 import { logger } from "../global/global.js";
 import RequestBuilder, { BadRequestException, httpException, HttpStatus, NotFoundException, UnauthorizedException } from "../global/requests-util.js";
+import { search } from "./search.js";
 
 
 export default async function songRequest(token, url) {
-	let qurl = "https://api.spotify.com/v1/me/player/queue?uri=" + getUri(url);
+	let qurl = "https://api.spotify.com/v1/me/player/queue?uri=" + await getUri(token, url);
 
 	const request = new RequestBuilder()
 		.url(qurl)
@@ -29,10 +30,12 @@ export default async function songRequest(token, url) {
 
 }
 
-function getUri(url) {
+async function getUri(token, url) {
 	if(/^spotify:track:[a-zA-z0-9]+$/.test(url)) {
 		return url;
 	} else if(/https:\/\/open\.spotify\.com\/track\//.test(url)) {
 		return "spotify:track:" + url.match(/(?<=track\/)[a-zA-Z0-9]+(?=\?|[a-zA-Z0-9]*)/);
+	} else {
+		return (await search(token, ["track", url, 1]))[0].uri;
 	}
 }
