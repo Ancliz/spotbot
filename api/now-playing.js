@@ -1,5 +1,4 @@
 import RequestBuilder, { httpException, HttpStatus, UnauthorizedException } from "../global/requests-util.js"
-import { logger } from "../global/global.js";
 
 /**
  * @param {string} token 
@@ -15,22 +14,7 @@ export default async function nowPlaying(token) {
 	let result = "";
 
 	if(response.status == HttpStatus.OK) {
-	 	const data = await response.json();
-		result = `Now playing: ${data.item.name} - `;
-
-		const artistsObjects = data.item.artists;
-
-		artistsObjects.forEach((artist, index) => {
-			if(index > 0) {
-				if(index < artistsObjects.length - 1) {
-					result += ", ";
-				} else {
-					result += " and "
-				}
-		  	}
-			result += artist.name;
-		});
-
+	 	return (await response.json()).item;
 	} else if(response.status === HttpStatus.NO_CONTENT) {
 		result = "Player not currently active"
 	} else if(response.status == HttpStatus.UNAUTHORIZED) {
@@ -39,6 +23,4 @@ export default async function nowPlaying(token) {
 		throw httpException(response.status, "Error retrieving song");
 	}
 
-	logger.debug("result: " + result);
-	return result;
 }
