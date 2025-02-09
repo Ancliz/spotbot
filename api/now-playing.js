@@ -2,7 +2,7 @@ import RequestBuilder, { httpException, HttpStatus, UnauthorizedException } from
 
 /**
  * @param {string} token 
- * @returns {string} the formatted title and artists of the song currently playing
+ * @returns {object | string} the track object, or a message that the player is not active.
  */
 export default async function nowPlaying(token) {
 	const request = new RequestBuilder()
@@ -11,13 +11,12 @@ export default async function nowPlaying(token) {
 		.build();
 		
 	const response = await request();
-	let result = "";
-
-	if(response.status == HttpStatus.OK) {
+	
+	if(response.status === HttpStatus.OK) {
 	 	return (await response.json()).item;
 	} else if(response.status === HttpStatus.NO_CONTENT) {
-		result = "Player not currently active"
-	} else if(response.status == HttpStatus.UNAUTHORIZED) {
+		return "Player not currently active";
+	} else if(response.status === HttpStatus.UNAUTHORIZED) {
 		throw new UnauthorizedException("Failed to get currently playing song");
 	} else {
 		throw httpException(response.status, "Error retrieving song");
