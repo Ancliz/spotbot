@@ -30,7 +30,7 @@ function generateRandomString(length) {
 // /login GET request endpoint
 function login_get(request, response) {
 	state = generateRandomString(16);
-	const scope = "user-read-private user-read-email user-read-currently-playing user-modify-playback-state";
+	const scope = "user-read-currently-playing user-read-playback-state user-modify-playback-state";
 	const spotifyAuthUrl = "https://accounts.spotify.com/authorize?" + querystring.stringify({
 		response_type: "code",
 		client_id: client_id,
