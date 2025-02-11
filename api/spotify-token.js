@@ -3,7 +3,6 @@ import querystring from "querystring";
 import { logger } from "../global/global.js"
 import * as CallbackUtil from "../global/token-callbacks.js"
 
-
 /**
  * @param {string} clientId 
  * @param {string} clientSecret 

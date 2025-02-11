@@ -3,7 +3,6 @@ import RequestBuilder, { BadRequestException, httpException, HttpStatus, NotFoun
 import { TRACK_ID, TRACK_URI, TRACK_URL } from "./regex.js";
 import { search } from "./search.js";
 
-
 export default async function songRequest(token, url) {
 	let qurl = "https://api.spotify.com/v1/me/player/queue?uri=" + await getUri(token, url);
 

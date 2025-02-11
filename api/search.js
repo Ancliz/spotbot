@@ -24,7 +24,6 @@ export async function search(token, args) {
 
 }
 
-
 export async function getTrack(token, uri) {
     const id = uri.match(TRACK_ID);
     const request = new RequestBuilder()
