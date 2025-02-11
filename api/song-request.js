@@ -1,5 +1,6 @@
 import { logger } from "../global/global.js";
 import RequestBuilder, { BadRequestException, httpException, HttpStatus, NotFoundException, UnauthorizedException } from "../global/requests-util.js";
+import { TRACK_ID, TRACK_URI, TRACK_URL } from "./regex.js";
 import { search } from "./search.js";
 
 
@@ -31,10 +32,10 @@ export default async function songRequest(token, url) {
 }
 
 async function getUri(token, url) {
-	if(/^spotify:track:[a-zA-z0-9]+$/.test(url)) {
+	if(TRACK_URI.test(url)) {
 		return url;
-	} else if(/https:\/\/open\.spotify\.com\/track\//.test(url)) {
-		return "spotify:track:" + url.match(/(?<=track\/)[a-zA-Z0-9]+(?=\?|[a-zA-Z0-9]*)/);
+	} else if(TRACK_URL.test(url)) {
+		return "spotify:track:" + url.match(TRACK_ID);
 	} else {
 		return (await search(token, ["track", url, 1]))[0].uri;
 	}
