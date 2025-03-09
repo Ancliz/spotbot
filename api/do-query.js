@@ -12,11 +12,11 @@ import { logger } from "../global/global.js"
  * @param {string} client_secret 
  * @returns the result of running the function
  */
-export async function runAuthenticated(runnable, access_token, refresh_token, client_id, client_secret, args) {
+export async function runAuthenticated(runnable, access_token, refresh_token, client_id, args) {
     let result = null;
 
     if(access_token === "") {
-        access_token = (await refreshSpotifyToken(client_id, client_secret, refresh_token)).access_token;
+        access_token = (await refreshSpotifyToken(client_id, refresh_token)).access_token;
     }
 
     try {
@@ -24,7 +24,7 @@ export async function runAuthenticated(runnable, access_token, refresh_token, cl
     } catch(error) {
         if(error instanceof UnauthorizedException) {
             logger.error(error.message);
-            access_token = (await refreshSpotifyToken(client_id, client_secret, refresh_token)).access_token;
+            access_token = (await refreshSpotifyToken(client_id, refresh_token)).access_token;
             result = await runnable(access_token, args);
         } else if(error instanceof NotFoundException) {
             logger.error(error.message);

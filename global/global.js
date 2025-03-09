@@ -10,3 +10,14 @@ export const logger = pino({
 		}
 	}
 });
+
+export const serverLogger = pino({
+	level: process.env.LOG_LEVEL || 'trace',
+	transport: {
+		target: "pino-pretty",
+		options: { 
+			colorize: false,
+			// destination: "logs/spotbot.log" 
+		}
+	}
+});

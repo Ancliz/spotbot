@@ -8,6 +8,6 @@
   "scripts": {
     "trace": "LOG_LEVEL=trace node client/entrypoint.js",
     "debug": "LOG_LEVEL=debug node client/entrypoint.js",
-    "entry": "LOG_LEVEL=info  node client/entrypoint.js"
+    "entry": "node client/entrypoint.js"
   }
 }

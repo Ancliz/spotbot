@@ -10,17 +10,15 @@ import * as CallbackUtil from "../global/token-callbacks.js"
  * @returns Once resolved, the JSON object of the response body.
  * Children include `access_token` and, if present, a new `refresh_token`
  */
-export default async function refreshSpotifyToken(clientId, clientSecret, refreshToken) {
+export default async function refreshSpotifyToken(clientId, refreshToken) {
     const request = new RequestBuilder()
         .url("https://accounts.spotify.com/api/token")
         .method("POST")
-        .headers({
-            "Authorization": "Basic " + (new Buffer.from(clientId + ":" + clientSecret).toString("base64")),
-            "Content-Type": "application/x-www-form-urlencoded"
-        })
+        .headers({ "Content-Type": "application/x-www-form-urlencoded" })
         .body(querystring.stringify({
             grant_type: "refresh_token",
             refresh_token: refreshToken,
+            client_id: clientId
         }))
         .build();
        

@@ -1,6 +1,6 @@
 import { logger } from "../global/global.js";
 import RequestBuilder, { BadRequestException, httpException, HttpStatus, NotFoundException, UnauthorizedException } from "../global/requests-util.js";
-import { search, getUri, getTrack } from "./search.js";
+import { getUri, getTrack } from "./search.js";
 
 export default async function songRequest(token, url) {
 	const uri = await getUri(token, url);
