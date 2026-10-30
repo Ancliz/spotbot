@@ -6,8 +6,11 @@ import url from "url";
 import crypto from "crypto";
 import querystring from "querystring";
 
+const LOGIN_TTL_MS = 10 * 60 * 1000;
+
 var state;
 var code_verifier;
+var login_expires;
 var client_id;
 var redirect_uri;
 
@@ -21,10 +24,24 @@ function generateCodeChallenge(verifier) {
 	return crypto.createHash("sha256").update(verifier).digest("base64url");
 }
 
+function stateMatches(received) {
+	if(!state || typeof received !== "string") return false;
+	const a = Buffer.from(received);
+	const b = Buffer.from(state);
+	return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+function setSecurityHeaders(response) {
+	response.setHeader("Cache-Control", "no-store");
+	response.setHeader("Referrer-Policy", "no-referrer");
+	response.setHeader("X-Content-Type-Options", "nosniff");
+}
+
 // /login GET request endpoint
 function login_get(request, response) {
 	state = generateRandomString(32);
 	code_verifier = generateRandomString(64);
+	login_expires = Date.now() + LOGIN_TTL_MS;
 	const scope = "user-read-currently-playing user-read-playback-state user-modify-playback-state";
 	const spotifyAuthUrl = "https://accounts.spotify.com/authorize?" + querystring.stringify({
 		response_type: "code",
@@ -75,10 +92,12 @@ async function callback(request, response, url) {
 
 	logger.trace("Checking state");
 
-	if(!state || responseState !== state) {
-		logger.error("State not accepted.");
+	if(!stateMatches(responseState) || Date.now() > login_expires) {
+		logger.error("State not accepted or expired.");
+		state = undefined;
+		code_verifier = undefined;
 		response.writeHead(403, {"Content-Type": "text/plain"});
-		response.end("State not accepted.");
+		response.end("State not accepted or expired.");
 	} else if(code) {
 		logger.debug("Code OK");
 		const verifier = code_verifier;
@@ -108,6 +127,7 @@ function createServer() {
 
 	http.createServer(async (request, response) => {
 		const parsedUrl = url.parse(request.url, true);
+		setSecurityHeaders(response);
 		
 		if(request.method === "GET" && parsedUrl.pathname === "/login") {
 			login_get(request, response);
