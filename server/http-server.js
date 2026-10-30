@@ -12,6 +12,7 @@ var code_verifier;
 var login_expires;
 var client_id;
 var redirect_uri;
+var allowed_user_id;
 
 // Generate a URL-safe random string (used for state and the PKCE code verifier)
 function generateRandomString(bytes) {
@@ -84,6 +85,20 @@ async function requestAccessToken(code, client_id, code_verifier, redirect_uri) 
 	return await response.json();
 }
 
+// Fetch the Spotify user id that owns the access token
+async function requestUserId(access_token) {
+	const request = new RequestBuilder()
+		.url("https://api.spotify.com/v1/me")
+		.headers( { "Authorization": "Bearer " + access_token } )
+		.build();
+
+	const response = await request();
+	if(!response.ok) {
+		return undefined;
+	}
+	return (await response.json()).id;
+}
+
 // Discard the pending login so the state/verifier can't be replayed
 function clearPendingLogin() {
 	state = undefined;
@@ -125,6 +140,16 @@ async function callback(request, response, url) {
 
 		if(data.access_token) {
 			logger.debug("Access token received");
+
+			const userId = await requestUserId(data.access_token);
+			if(!allowed_user_id) {
+				logger.warn("No allowed user id configured; tokens not saved. Authorized user id: " + userId);
+				return handleError(response, 403, "No allowed Spotify user configured.");
+			}
+			if(userId !== allowed_user_id) {
+				return handleError(response, 403, "Spotify user not allowed.", "got " + userId);
+			}
+
 			CallbackUtil.saveAccessToken(data.access_token);
 			CallbackUtil.saveRefreshToken(data.refresh_token);
 			send(response, 200, "Authorization successful!");
@@ -161,8 +186,9 @@ function createServer() {
 	});
 }
 
-export default function start(clientId, redirectUri) {
+export default function start(clientId, redirectUri, allowedUserId) {
 	client_id = clientId;
 	redirect_uri = redirectUri;
+	allowed_user_id = allowedUserId;
 	createServer();
 }
