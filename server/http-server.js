@@ -2,7 +2,6 @@ import { logger } from "../global/global.js";
 import RequestBuilder from "../global/requests-util.js";
 import * as CallbackUtil from "../global/token-callbacks.js"
 import http from "http";
-import url from "url";
 import crypto from "crypto";
 import querystring from "querystring";
 
@@ -85,38 +84,55 @@ async function requestAccessToken(code, client_id, code_verifier, redirect_uri) 
 	return await response.json();
 }
 
+// Discard the pending login so the state/verifier can't be replayed
+function clearPendingLogin() {
+	state = undefined;
+	code_verifier = undefined;
+}
+
+function send(response, statusCode, message) {
+	if(!response.headersSent) {
+		response.writeHead(statusCode, { "Content-Type": "text/plain" });
+	}
+	response.end(message);
+}
+
+// Log the failure (with optional detail), end the pending login and respond
+function handleError(response, statusCode, message, detail) {
+	logger.error(detail ? message + " " + (detail.message || detail) : message);
+	clearPendingLogin();
+	send(response, statusCode, message);
+}
+
 // /callback GET request endpoint
 async function callback(request, response, url) {
-	const code = url.query.code;  // The authorization code returned by Spotify
-	const responseState = url.query.state; // The state parameter for CSRF protection
+	const code = url.searchParams.get("code");  // The authorization code returned by Spotify
+	const responseState = url.searchParams.get("state"); // The state parameter for CSRF protection
+	const error = url.searchParams.get("error"); // Set by Spotify if the user denied access
 
 	logger.trace("Checking state");
 
 	if(!stateMatches(responseState) || Date.now() > login_expires) {
-		logger.error("State not accepted or expired.");
-		state = undefined;
-		code_verifier = undefined;
-		response.writeHead(403, {"Content-Type": "text/plain"});
-		response.end("State not accepted or expired.");
+		handleError(response, 403, "State not accepted or expired.");
+	} else if(error) {
+		handleError(response, 403, "Authorization denied.", error);
 	} else if(code) {
-		logger.debug("Code OK");
+		logger.info("Code OK");
+
 		const verifier = code_verifier;
-		// Single use: clear so the state/verifier can't be replayed
-		state = undefined;
-		code_verifier = undefined;
+		clearPendingLogin();
 		const data = await requestAccessToken(code, client_id, verifier, redirect_uri);
 
 		if(data.access_token) {
 			logger.debug("Access token received");
 			CallbackUtil.saveAccessToken(data.access_token);
 			CallbackUtil.saveRefreshToken(data.refresh_token);
-			response.writeHead(200, { "Content-Type": "text/plain" });
-			response.end("Authorization successful!");
+			send(response, 200, "Authorization successful!");
+		} else {
+			handleError(response, 502, "Token exchange failed.", data.error || "unknown error");
 		}
 	} else {
-		logger.error("Access token not received.");
-		response.writeHead(400, { "Content-Type": "text/plain" });
-		response.end("Access token not received.");
+		handleError(response, 400, "Authorization code not received.");
 	}
 }
 
@@ -126,16 +142,19 @@ function createServer() {
 	const port = callbackUrl.port || 8888;
 
 	http.createServer(async (request, response) => {
-		const parsedUrl = url.parse(request.url, true);
+		const parsedUrl = new URL(request.url, "http://" + callbackUrl.host);
 		setSecurityHeaders(response);
 		
-		if(request.method === "GET" && parsedUrl.pathname === "/login") {
-			login_get(request, response);
-		} else if(request.method === "GET" && parsedUrl.pathname === callbackUrl.pathname) { // Handle the redirect from Spotify after login
-			callback(request, response, parsedUrl);
-		} else {
-			response.writeHead(200, { "Content-Type": "text/plain" });
-			response.end("Visit /login to start the authorization flow.");
+		try {
+			if(request.method === "GET" && parsedUrl.pathname === "/login") {
+				login_get(request, response);
+			} else if(request.method === "GET" && parsedUrl.pathname === callbackUrl.pathname) { // Handle the redirect from Spotify after login
+				await callback(request, response, parsedUrl);
+			} else {
+				send(response, 200, "Visit /login to start the authorization flow.");
+			}
+		} catch(err) {
+			handleError(response, 500, "Internal server error.", err);
 		}
 	}).listen(port, callbackUrl.hostname, () => {
 			console.log("Server running at http://" + callbackUrl.hostname + ":" + port);
