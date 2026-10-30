@@ -3,40 +3,37 @@ import RequestBuilder from "../global/requests-util.js";
 import * as CallbackUtil from "../global/token-callbacks.js"
 import http from "http";
 import url from "url";
+import crypto from "crypto";
 import querystring from "querystring";
 
 var state;
+var code_verifier;
 var client_id;
-var client_secret;
 var redirect_uri;
 
-// Generate a random string for state
-function generateRandomString(length) {
-	const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-	let result = "";
-	let indices = new Uint32Array(length);
-	crypto.getRandomValues(indices);
+// Generate a URL-safe random string (used for state and the PKCE code verifier)
+function generateRandomString(bytes) {
+	return crypto.randomBytes(bytes).toString("base64url");
+}
 
-	logger.trace("Generating state");
-
-	for(let i = 0; i < length; ++i) {
-		result += characters.charAt(Math.floor(indices[i] / (0xFFFFFFFF + 1) * characters.length));
-	}
-
-	logger.debug("State: " + result);
-	return result;
+// PKCE code challenge: base64url(sha256(verifier))
+function generateCodeChallenge(verifier) {
+	return crypto.createHash("sha256").update(verifier).digest("base64url");
 }
 
 // /login GET request endpoint
 function login_get(request, response) {
-	state = generateRandomString(16);
+	state = generateRandomString(32);
+	code_verifier = generateRandomString(64);
 	const scope = "user-read-currently-playing user-read-playback-state user-modify-playback-state";
 	const spotifyAuthUrl = "https://accounts.spotify.com/authorize?" + querystring.stringify({
 		response_type: "code",
 		client_id: client_id,
 		scope: scope,
 		redirect_uri: redirect_uri,
-		state: state
+		state: state,
+		code_challenge_method: "S256",
+		code_challenge: generateCodeChallenge(code_verifier)
 	});
 
 	// Redirect the user to Spotify's authorization page
@@ -45,7 +42,7 @@ function login_get(request, response) {
 }
 
 // Exchange the authorization code for an access token
-async function requestAccessToken(code, client_id, client_secret, redirect_uri) {
+async function requestAccessToken(code, client_id, code_verifier, redirect_uri) {
 	logger.debug("Building access token request data");
 
 	const data = querystring.stringify({
@@ -53,7 +50,7 @@ async function requestAccessToken(code, client_id, client_secret, redirect_uri) 
 		code: code,
 		redirect_uri: redirect_uri,
 		client_id: client_id,
-		client_secret: client_secret
+		code_verifier: code_verifier
 	});
 
 	logger.trace("Building access token request");
@@ -78,16 +75,20 @@ async function callback(request, response, url) {
 
 	logger.trace("Checking state");
 
-	if(responseState !== state) {
-		logger.error("State not accepted. " + state + " received: " + responseState);
+	if(!state || responseState !== state) {
+		logger.error("State not accepted.");
 		response.writeHead(403, {"Content-Type": "text/plain"});
 		response.end("State not accepted.");
 	} else if(code) {
 		logger.debug("Code OK");
-		const data = await requestAccessToken(code, client_id, client_secret, redirect_uri);
+		const verifier = code_verifier;
+		// Single use: clear so the state/verifier can't be replayed
+		state = undefined;
+		code_verifier = undefined;
+		const data = await requestAccessToken(code, client_id, verifier, redirect_uri);
 
 		if(data.access_token) {
-			logger.debug("Access Token: " + data.access_token);
+			logger.debug("Access token received");
 			CallbackUtil.saveAccessToken(data.access_token);
 			CallbackUtil.saveRefreshToken(data.refresh_token);
 			response.writeHead(200, { "Content-Type": "text/plain" });
@@ -102,25 +103,27 @@ async function callback(request, response, url) {
 
 // Create the HTTP server to handle requests
 function createServer() {
+	const callbackUrl = new URL(redirect_uri);
+	const port = callbackUrl.port || 8888;
+
 	http.createServer(async (request, response) => {
 		const parsedUrl = url.parse(request.url, true);
 		
 		if(request.method === "GET" && parsedUrl.pathname === "/login") {
 			login_get(request, response);
-		} else if(request.method === "GET" && parsedUrl.pathname === "/callback") { // Handle the redirect from Spotify after login
+		} else if(request.method === "GET" && parsedUrl.pathname === callbackUrl.pathname) { // Handle the redirect from Spotify after login
 			callback(request, response, parsedUrl);
 		} else {
 			response.writeHead(200, { "Content-Type": "text/plain" });
 			response.end("Visit /login to start the authorization flow.");
 		}
-	}).listen(8888, () => {
-			console.log("Server running at http://localhost:8888");
+	}).listen(port, callbackUrl.hostname, () => {
+			console.log("Server running at http://" + callbackUrl.hostname + ":" + port);
 	});
 }
 
-export default function start(clientId, clientSecret, redirectUri) {
+export default function start(clientId, redirectUri) {
 	client_id = clientId;
-	client_secret = clientSecret;
 	redirect_uri = redirectUri;
 	createServer();
 }
