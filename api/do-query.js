@@ -2,6 +2,13 @@ import { BadRequestException, NotFoundException, UnauthorizedException } from ".
 import refreshSpotifyToken from "./spotify-token.js";
 import { logger } from "../global/global.js"
 
+// The new access token, or undefined if the refresh failed (the user must log in again)
+async function refresh(client_id, refresh_token) {
+    const data = await refreshSpotifyToken(client_id, refresh_token);
+    if(!data) logger.error("Token refresh failed. Visit /login to authorize again.");
+    return data?.access_token;
+}
+
 /**
  * A general function to run functions that make authenticated API calls
  * to handle refreshing the token when expired
@@ -15,7 +22,8 @@ export async function runAuthenticated(runnable, access_token, refresh_token, cl
     let result = null;
 
     if(access_token === "") {
-        access_token = (await refreshSpotifyToken(client_id, refresh_token)).access_token;
+        access_token = await refresh(client_id, refresh_token);
+        if(!access_token) return null;
     }
 
     try {
@@ -23,7 +31,8 @@ export async function runAuthenticated(runnable, access_token, refresh_token, cl
     } catch(error) {
         if(error instanceof UnauthorizedException) {
             logger.error(error.message);
-            access_token = (await refreshSpotifyToken(client_id, refresh_token)).access_token;
+            access_token = await refresh(client_id, refresh_token);
+            if(!access_token) return null;
             result = await runnable(access_token, args);
         } else if(error instanceof NotFoundException) {
             logger.error(error.message);
