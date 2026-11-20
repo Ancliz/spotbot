@@ -7,6 +7,7 @@ import { search } from "../api/search.js";
 import songRequest from "../api/song-request.js";
 import getDevices, { castPlayback } from "../api/devices.js";
 import { TRACK_URI } from "../api/regex.js";
+import { getPlaybackState, play, pause, next, previous, seek, setVolume, setShuffle, setRepeat } from "../api/playback.js";
 import http from "http";
 import { text } from "stream/consumers";
 import crypto from "crypto";
@@ -190,6 +191,69 @@ async function cast_put(request, response) {
 	respond(response, await authenticated(castPlayback, [body.device_id, body.play !== false]));
 }
 
+// /player GET request endpoint: the current playback state
+async function player_get(_request, response) {
+	respond(response, await authenticated(getPlaybackState));
+}
+
+// /play PUT request endpoint: optional { "device_id"?: string, "uri"?: string }, resumes when empty
+async function play_put(request, response) {
+	const body = (await jsonBody(request)) ?? {};
+	const { device_id, uri } = body;
+
+	if(device_id !== undefined && (typeof device_id !== "string" || device_id === "")) {
+		return handleError(response, 400, "device_id must be a non-empty string.");
+	} else if(uri !== undefined && !/^spotify:(track|album|playlist|artist|show):[a-zA-Z0-9]+$/.test(uri)) {
+		return handleError(response, 400, "uri must be a spotify track, album, playlist, artist or show uri.");
+	}
+
+	respond(response, await authenticated(play, [device_id, uri]));
+}
+
+// /seek PUT request endpoint: { "position_ms": number }
+async function seek_put(request, response) {
+	const body = await jsonBody(request);
+
+	if(!Number.isInteger(body?.position_ms) || body.position_ms < 0) {
+		return handleError(response, 400, "Expected a JSON body with a non-negative integer position_ms.");
+	}
+
+	respond(response, await authenticated(seek, body.position_ms));
+}
+
+// /volume PUT request endpoint: { "percent": number } from 0 to 100
+async function volume_put(request, response) {
+	const body = await jsonBody(request);
+
+	if(!Number.isInteger(body?.percent) || body.percent < 0 || body.percent > 100) {
+		return handleError(response, 400, "Expected a JSON body with an integer percent from 0 to 100.");
+	}
+
+	respond(response, await authenticated(setVolume, body.percent));
+}
+
+// /shuffle PUT request endpoint: { "state": boolean }
+async function shuffle_put(request, response) {
+	const body = await jsonBody(request);
+
+	if(typeof body?.state !== "boolean") {
+		return handleError(response, 400, "Expected a JSON body with a boolean state.");
+	}
+
+	respond(response, await authenticated(setShuffle, body.state));
+}
+
+// /repeat PUT request endpoint: { "state": "track" | "context" | "off" }
+async function repeat_put(request, response) {
+	const body = await jsonBody(request);
+
+	if(!["track", "context", "off"].includes(body?.state)) {
+		return handleError(response, 400, "Expected a JSON body with state track, context or off.");
+	}
+
+	respond(response, await authenticated(setRepeat, body.state));
+}
+
 // /request POST request endpoint: { "song": string }, a track uri, link or search text
 async function request_post(request, response) {
 	const body = await jsonBody(request);
@@ -339,6 +403,24 @@ function createServer() {
 				await cast_put(request, response);
 			} else if(request.method === "POST" && parsedUrl.pathname === "/request") {
 				await request_post(request, response);
+			} else if(request.method === "GET" && parsedUrl.pathname === "/player") {
+				await player_get(request, response);
+			} else if(request.method === "PUT" && parsedUrl.pathname === "/play") {
+				await play_put(request, response);
+			} else if(request.method === "PUT" && parsedUrl.pathname === "/pause") {
+				respond(response, await authenticated(pause));
+			} else if(request.method === "POST" && parsedUrl.pathname === "/next") {
+				respond(response, await authenticated(next));
+			} else if(request.method === "POST" && parsedUrl.pathname === "/previous") {
+				respond(response, await authenticated(previous));
+			} else if(request.method === "PUT" && parsedUrl.pathname === "/seek") {
+				await seek_put(request, response);
+			} else if(request.method === "PUT" && parsedUrl.pathname === "/volume") {
+				await volume_put(request, response);
+			} else if(request.method === "PUT" && parsedUrl.pathname === "/shuffle") {
+				await shuffle_put(request, response);
+			} else if(request.method === "PUT" && parsedUrl.pathname === "/repeat") {
+				await repeat_put(request, response);
 			} else if(request.method === "GET" && parsedUrl.pathname === "/") {
 				send(response, 200, "Visit /login to start the authorization flow.");
 			} else {
