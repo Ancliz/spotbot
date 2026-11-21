@@ -8,6 +8,7 @@ import songRequest from "../api/song-request.js";
 import getDevices, { castPlayback } from "../api/devices.js";
 import { TRACK_URI } from "../api/regex.js";
 import { getPlaybackState, play, pause, next, previous, seek, setVolume, setShuffle, setRepeat } from "../api/playback.js";
+import * as RequestLog from "./request-log.js";
 import http from "http";
 import { text } from "stream/consumers";
 import crypto from "crypto";
@@ -169,10 +170,10 @@ function authenticated(runnable, args) {
 	return runAuthenticated(runnable, CallbackUtil.loadAccessToken(), CallbackUtil.loadRefreshToken(), client_id, args);
 }
 
-// Parse a JSON request body, or undefined when it is not JSON
-async function jsonBody(request) {
-	try   { return JSON.parse(await text(request)); }
-	catch { return undefined; 						}
+// Parse the JSON request body read by the handler, or undefined when it is not JSON
+function jsonBody(request) {
+	try   { return JSON.parse(request.body); }
+	catch { return undefined; 				 }
 }
 
 // /devices GET request endpoint
@@ -252,6 +253,23 @@ async function repeat_put(request, response) {
 	}
 
 	respond(response, await authenticated(setRepeat, body.state));
+}
+
+// /log GET request endpoint: whether requests are being logged, and to which files
+function log_get(_request, response) {
+	sendJson(response, 200, { enabled: RequestLog.isLogging(), files: RequestLog.logFiles() });
+}
+
+// /log PUT request endpoint: { "enabled": boolean } starts or stops logging requests and responses to the request log's sinks
+function log_put(request, response) {
+	const body = jsonBody(request);
+
+	if(typeof body?.enabled !== "boolean") {
+		return handleError(response, 400, "Expected a JSON body with a boolean enabled.");
+	}
+
+	const files = body.enabled ? RequestLog.startLogging() : RequestLog.stopLogging();
+	sendJson(response, 200, { enabled: body.enabled, files: files });
 }
 
 // /request POST request endpoint: { "song": string }, a track uri, link or search text
@@ -383,10 +401,19 @@ function createServer() {
 	const handler = async (request, response) => {
 		const parsedUrl = new URL(request.url, "http://" + callbackUrl.host);
 		setSecurityHeaders(response);
+		RequestLog.capture(request, response, parsedUrl);
 
 		try {
 			if(!checkRemote(request, response, parsedUrl.pathname, callbackUrl.pathname)) {
 				return;
+			}
+
+			request.body = await text(request);
+
+			if(request.method === "GET" && parsedUrl.pathname === "/log") {
+				log_get(request, response);
+			} else if(request.method === "PUT" && parsedUrl.pathname === "/log") {
+				log_put(request, response);
 			} else if(request.method === "GET" && parsedUrl.pathname === "/login") {
 				login_get(request, response);
 			} else if(request.method === "GET" && parsedUrl.pathname === callbackUrl.pathname) { // Handle the redirect from Spotify after login
@@ -449,5 +476,6 @@ export default function start(clientId, redirectUri, allowedUserId, listenHost, 
 	allowed_user_id = allowedUserId;
 	listen_host = listenHost;
 	api_key = apiKey;
+	RequestLog.startIfEnabled();
 	createServer();
 }

@@ -2,3 +2,5 @@ node_modules/
 client/
 entrypoint.js
 ecosystem.config.*
+logs/
+logging.json

@@ -1,0 +1,15 @@
+{
+	"app": {
+		"sinks": [
+			{ "type": "console", "pretty": true },
+			{ "type": "file", "name": "app", "maxMb": 10, "keep": 5 },
+			{ "type": "file", "dir": "logs/errors", "name": "errors", "maxMb": 5, "keep": 10, "level": "warn" }
+		]
+	},
+	"requests": {
+		"enabled": true,
+		"sinks": [
+			{ "type": "file", "name": "requests", "maxMb": 20, "keep": 3 }
+		]
+	}
+}
