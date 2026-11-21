@@ -9,6 +9,7 @@ import getDevices, { castPlayback } from "../api/devices.js";
 import { TRACK_URI } from "../api/regex.js";
 import { getPlaybackState, play, pause, next, previous, seek, setVolume, setShuffle, setRepeat } from "../api/playback.js";
 import * as RequestLog from "./request-log.js";
+import { observeRequest, registry } from "../global/metrics.js";
 import http from "http";
 import { text } from "stream/consumers";
 import crypto from "crypto";
@@ -255,6 +256,12 @@ async function repeat_put(request, response) {
 	respond(response, await authenticated(setRepeat, body.state));
 }
 
+// /metrics GET request endpoint, in the Prometheus text format
+async function metrics_get(_request, response) {
+	response.writeHead(200, { "Content-Type": registry.contentType });
+	response.end(await registry.metrics());
+}
+
 // /log GET request endpoint: whether requests are being logged, and to which files
 function log_get(_request, response) {
 	sendJson(response, 200, { enabled: RequestLog.isLogging(), files: RequestLog.logFiles() });
@@ -398,10 +405,20 @@ function createServer() {
 	const callbackUrl = new URL(redirect_uri);
 	const port = callbackUrl.port || 8888;
 
+	// Routes the server knows, used as the metrics route label
+	const routes = new Set(["/", "/login", callbackUrl.pathname, "/metrics", "/log", "/queue", "/time-until",
+		"/search", "/devices", "/cast", "/request", "/player", "/play", "/pause", "/next", "/previous",
+		"/seek", "/volume", "/shuffle", "/repeat"]);
+
 	const handler = async (request, response) => {
 		const parsedUrl = new URL(request.url, "http://" + callbackUrl.host);
 		setSecurityHeaders(response);
-		RequestLog.capture(request, response, parsedUrl);
+		observeRequest(request, response, routes.has(parsedUrl.pathname) ? parsedUrl.pathname : "unmatched");
+
+		// Scrapes every few seconds would drown out everything else in the request log
+		if(parsedUrl.pathname !== "/metrics") {
+			RequestLog.capture(request, response, parsedUrl);
+		}
 
 		try {
 			if(!checkRemote(request, response, parsedUrl.pathname, callbackUrl.pathname)) {
@@ -410,7 +427,9 @@ function createServer() {
 
 			request.body = await text(request);
 
-			if(request.method === "GET" && parsedUrl.pathname === "/log") {
+			if(request.method === "GET" && parsedUrl.pathname === "/metrics") {
+				await metrics_get(request, response);
+			} else if(request.method === "GET" && parsedUrl.pathname === "/log") {
 				log_get(request, response);
 			} else if(request.method === "PUT" && parsedUrl.pathname === "/log") {
 				log_put(request, response);

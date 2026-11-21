@@ -1,10 +1,12 @@
 import { BadRequestException, NotFoundException, UnauthorizedException } from "../global/requests-util.js";
 import refreshSpotifyToken from "./spotify-token.js";
 import { logger } from "../global/global.js"
+import { countSpotifyError, countTokenRefresh } from "../global/metrics.js";
 
 // The new access token, or undefined if the refresh failed (the user must log in again)
 async function refresh(client_id, refresh_token) {
     const data = await refreshSpotifyToken(client_id, refresh_token);
+    countTokenRefresh(!!data?.access_token);
     if(!data) logger.error("Token refresh failed. Visit /login to authorize again.");
     return data?.access_token;
 }
@@ -29,6 +31,7 @@ export async function runAuthenticated(runnable, access_token, refresh_token, cl
     try {
         result = await runnable(access_token, args);
     } catch(error) {
+        countSpotifyError(error);
         if(error instanceof UnauthorizedException) {
             logger.error(error.message);
             access_token = await refresh(client_id, refresh_token);
