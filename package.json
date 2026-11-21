@@ -10,5 +10,6 @@
     "trace": "LOG_LEVEL=trace node client/entrypoint.js",
     "debug": "LOG_LEVEL=debug node client/entrypoint.js",
     "entry": "LOG_LEVEL=info  node client/entrypoint.js"
-  }
+  },
+  "version": "0.2.0"
 }
