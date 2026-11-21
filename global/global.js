@@ -1,4 +1,5 @@
 import pino from "pino";
+import os from "os";
 import { createSink, logConfig } from "./log-config.js";
 
 const level = process.env.LOG_LEVEL || "info";
@@ -14,4 +15,8 @@ const streams = sinks.map((spec, i) => ({
 // The logger has to pass on the most detailed level any sink asks for
 const lowest = streams.reduce((low, { level }) => pino.levels.values[level] < pino.levels.values[low] ? level : low, level);
 
-export const logger = pino({ level: lowest }, pino.multistream(streams));
+// "log" tells app lines from request lines when both go to the same place, such as stdout in Docker
+export const logger = pino({
+	level: lowest,
+	base: { pid: process.pid, hostname: os.hostname(), log: "app" }
+}, pino.multistream(streams));

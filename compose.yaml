@@ -1,0 +1,42 @@
+name: spotify
+
+services:
+  spotify:
+    build: .
+    image: spotify-control:latest
+    container_name: spotify
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Spotify redirects the browser back here, so it stays loopback on the host
+      REDIRECT_URI: http://127.0.0.1:8888/callback
+      # The bridge gateway: requests from the host itself (such as the login in a browser there)
+      # arrive from it. Everything else, including the LAN and other containers, needs API_KEY
+      TRUSTED_NETWORKS: 172.30.0.1
+    ports:
+      - "8888:8888"
+    volumes:
+      - spotify-data:/data
+    networks:
+      - spotify
+    labels:
+      metrics.scrape: "true"
+      metrics.port: "8888"
+      metrics.path: /metrics
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+
+networks:
+  spotify:
+    driver: bridge
+    ipam:
+      config:
+        # Fixed, so TRUSTED_NETWORKS can name the gateway
+        - subnet: 172.30.0.0/24
+          gateway: 172.30.0.1
+
+volumes:
+  spotify-data:

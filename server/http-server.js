@@ -13,6 +13,7 @@ import { observeRequest, registry } from "../global/metrics.js";
 import http from "http";
 import { text } from "stream/consumers";
 import crypto from "crypto";
+import net from "net";
 import querystring from "querystring";
 
 const LOGIN_TTL_MS = 10 * 60 * 1000;
@@ -26,6 +27,7 @@ var redirect_uri;
 var allowed_user_id;
 var listen_host;
 var api_key;
+var trusted = new net.BlockList();
 
 // Generate a URL-safe random string (used for state and the PKCE code verifier)
 function generateRandomString(bytes) {
@@ -39,7 +41,9 @@ function generateCodeChallenge(verifier) {
 
 // Constant-time string comparison
 function safeEqual(received, expected) {
-	if(typeof received !== "string" || typeof expected !== "string") return false;
+	if(typeof received !== "string" || typeof expected !== "string") {
+		return false;
+	}
 	const a = Buffer.from(received);
 	const b = Buffer.from(expected);
 	return a.length === b.length && crypto.timingSafeEqual(a, b);
@@ -52,6 +56,41 @@ function stateMatches(received) {
 // 127.0.0.0/8 and ::1, including IPv4 addresses mapped into IPv6
 function isLoopback(address) {
 	return address === "::1" || /^(::ffff:)?127\./.test(address ?? "");
+}
+
+// Strip the IPv6 prefix from IPv4 addresses mapped into IPv6
+function plainAddress(address) {
+	return (address ?? "").replace(/^::ffff:(?=\d+\.\d+\.\d+\.\d+$)/, "");
+}
+
+// Parse TRUSTED_NETWORKS: comma-separated addresses or CIDR ranges, such as "172.30.0.1/32,fd00::/8"
+function parseTrusted(list) {
+	const blockList = new net.BlockList();
+
+	for(const entry of (list ?? "").split(",").map(item => item.trim()).filter(Boolean)) {
+		const [address, prefix] = entry.split("/");
+		const family = net.isIPv6(address) ? "ipv6" : net.isIPv4(address) ? "ipv4" : undefined;
+		const bits = prefix === undefined ? (family === "ipv6" ? 128 : 32) : Number(prefix);
+
+		if(!family || !Number.isInteger(bits) || bits < 0 || bits > (family === "ipv6" ? 128 : 32)) {
+			throw new Error("TRUSTED_NETWORKS: not an address or CIDR range: " + entry);
+		}
+
+		blockList.addSubnet(address, bits, family);
+		logger.info("Trusting requests from " + address + "/" + bits);
+	}
+
+	return blockList;
+}
+
+// Loopback, or an address in TRUSTED_NETWORKS, such as the Docker bridge gateway that requests
+// from the host arrive from
+function isTrusted(address) {
+	const plain = plainAddress(address);
+	if(isLoopback(address)) return true;
+	if(net.isIPv4(plain)) 	return trusted.check(plain, "ipv4");
+	if(net.isIPv6(plain)) 	return trusted.check(plain, "ipv6");
+	return false;
 }
 
 function isWildcard(host) {
@@ -369,10 +408,10 @@ async function callback(_request, response, url) {
 	}
 }
 
-// Loopback requests are trusted. The rest need the API key and can't log in, since Spotify
-// only redirects back to the loopback REDIRECT_URI
+// Loopback and TRUSTED_NETWORKS requests are trusted. The rest need the API key and can't log in,
+// since Spotify only redirects back to the loopback REDIRECT_URI
 function checkRemote(request, response, pathname, callbackPath) {
-	if(isLoopback(request.socket.remoteAddress)) {
+	if(isTrusted(request.socket.remoteAddress)) {
 		return true;
 	}
 
@@ -489,12 +528,13 @@ function createServer() {
 	}
 }
 
-export default function start(clientId, redirectUri, allowedUserId, listenHost, apiKey) {
+export default function start(clientId, redirectUri, allowedUserId, listenHost, apiKey, trustedNetworks) {
 	client_id = clientId;
 	redirect_uri = redirectUri;
 	allowed_user_id = allowedUserId;
 	listen_host = listenHost;
 	api_key = apiKey;
+	trusted = parseTrusted(trustedNetworks);
 	RequestLog.startIfEnabled();
 	createServer();
 }

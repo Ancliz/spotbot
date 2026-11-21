@@ -25,7 +25,9 @@ export async function runAuthenticated(runnable, access_token, refresh_token, cl
 
     if(access_token === "") {
         access_token = await refresh(client_id, refresh_token);
-        if(!access_token) return null;
+        if(!access_token) {
+            return null;
+        }
     }
 
     try {
@@ -35,7 +37,9 @@ export async function runAuthenticated(runnable, access_token, refresh_token, cl
         if(error instanceof UnauthorizedException) {
             logger.error(error.message);
             access_token = await refresh(client_id, refresh_token);
-            if(!access_token) return null;
+            if(!access_token) {
+                return null;
+            }
             result = await runnable(access_token, args);
         } else if(error instanceof NotFoundException) {
             logger.error(error.message);

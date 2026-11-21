@@ -4,3 +4,5 @@ entrypoint.js
 ecosystem.config.*
 logs/
 logging.json
+data/
+.env

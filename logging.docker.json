@@ -1,0 +1,13 @@
+{
+	"app": {
+		"sinks": [
+			{ "type": "console", "pretty": false }
+		]
+	},
+	"requests": {
+		"enabled": true,
+		"sinks": [
+			{ "type": "console", "pretty": false }
+		]
+	}
+}

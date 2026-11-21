@@ -36,7 +36,9 @@ function fail(where, message) {
 }
 
 function positive(value, fallback, where) {
-	if(value === undefined) return fallback;
+	if(value === undefined) {
+		return fallback;
+	}
 	if(typeof value !== "number" || !(value > 0)) fail(where, "must be a positive number");
 	return value;
 }

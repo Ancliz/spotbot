@@ -67,7 +67,9 @@ function truncate(body) {
  * @param {URL} url the parsed request url
  */
 export function capture(request, response, url) {
-	if(!sinks) return;
+	if(!sinks) {
+		return;
+	}
 
 	const started = Date.now();
 	const chunks = [];
@@ -89,6 +91,7 @@ export function capture(request, response, url) {
 
 	response.once("finish", () => {
 		const entry = {
+			log: "requests",
 			time: new Date(started).toISOString(),
 			ms: Date.now() - started,
 			remote: request.socket.remoteAddress,
