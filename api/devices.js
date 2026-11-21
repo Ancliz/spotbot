@@ -1,4 +1,6 @@
 import RequestBuilder, { httpException, HttpStatus, UnauthorizedException } from "../global/requests-util.js"
+import { getPlaybackState, play as resume } from "./playback.js";
+import { logger } from "../global/global.js";
 
 /**
  * @param {string} token
@@ -22,12 +24,24 @@ export default async function getDevices(token) {
 }
 
 /**
- * Move playback to a Spotify Connect device.
+ * Move playback to a Spotify Connect device. When that device is already the active one, playback
+ * is not moved, since Spotify would restart it there with a brief silence; it is only resumed when
+ * asked to play and paused.
  * @param {string} token
  * @param {[string, boolean]} args the device id, and whether to start playing there
- * @returns {Promise<boolean>} true once Spotify accepts the cast
+ * @returns {Promise<boolean>} true once Spotify accepts the cast, or when there is nothing to do
  */
 export async function castPlayback(token, [deviceId, play]) {
+    const state = await getPlaybackState(token);
+
+    if(state && state.device?.id === deviceId) {
+        if(play && !state.is_playing) {
+            return await resume(token, [deviceId]);
+        }
+        logger.debug("Already playing on " + (state.device.name ?? deviceId) + ", not casting");
+        return true;
+    }
+
     const request = new RequestBuilder()
         .url("https://api.spotify.com/v1/me/player")
         .method("PUT")
